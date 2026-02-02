@@ -3,46 +3,128 @@
 import { SwapEvent } from '@/app/hooks/useSwapEvents'
 import { AddressLabel } from './AddressLabel'
 import { formatTokenAmount, formatTimestamp, calculateDepegBps } from '@/app/lib/formatters'
-import { getAddressLabel } from '@/app/lib/addressLabels'
+import { getAddressLabel, formatAddress, looksLikeBot } from '@/app/lib/addressLabels'
 import { formatUnits } from 'viem'
 
-// Get the best address to display for identifying the swap source
-// Priority: txTo (aggregator contract) > receiver > txFrom
-function getBestAddressForLabel(event: SwapEvent): string {
-  // First check if txTo is a known aggregator
-  if (event.txTo) {
-    const txToLabel = getAddressLabel(event.txTo)
-    if (txToLabel && txToLabel.type === 'aggregator') {
-      return event.txTo
-    }
-  }
-
-  // Then check receiver
-  if (event.receiver) {
-    const receiverLabel = getAddressLabel(event.receiver)
-    if (receiverLabel && (receiverLabel.type === 'aggregator' || receiverLabel.type === 'solver' || receiverLabel.type === 'pool')) {
-      return event.receiver
-    }
-  }
-
-  // Fall back to txTo if it's any known address
+// Identify the source/aggregator that routed the swap
+// Priority: txTo (aggregator contract) > receiver (if aggregator/solver) > unknown
+function getSourceInfo(event: SwapEvent): { address: string; isBot: boolean } {
+  // Check txTo first - this is the contract the user/bot called
   if (event.txTo) {
     const txToLabel = getAddressLabel(event.txTo)
     if (txToLabel) {
-      return event.txTo
+      return {
+        address: event.txTo,
+        isBot: txToLabel.type === 'mev' || looksLikeBot(event.txFrom)
+      }
     }
   }
 
-  // Fall back to receiver if it's any known address
+  // Check receiver for aggregator/solver
   if (event.receiver) {
     const receiverLabel = getAddressLabel(event.receiver)
-    if (receiverLabel) {
-      return event.receiver
+    if (receiverLabel && (receiverLabel.type === 'aggregator' || receiverLabel.type === 'solver')) {
+      return {
+        address: event.receiver,
+        isBot: looksLikeBot(event.txFrom)
+      }
     }
   }
 
-  // Finally, show the txTo (the contract called) or receiver
-  return event.txTo || event.receiver || event.txFrom
+  // Fall back to txTo even if unknown
+  return {
+    address: event.txTo || event.receiver || '',
+    isBot: looksLikeBot(event.txFrom)
+  }
+}
+
+// Small component for the Bot tag
+function BotTag() {
+  return (
+    <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-orange-900/50 text-orange-400 rounded">
+      BOT
+    </span>
+  )
+}
+
+// Component to display source with optional bot tag
+function SourceDisplay({ event }: { event: SwapEvent }) {
+  const { address, isBot } = getSourceInfo(event)
+  const label = getAddressLabel(address)
+
+  if (!address) {
+    return <span className="text-gray-500">-</span>
+  }
+
+  if (label) {
+    const typeStyles: Record<string, string> = {
+      aggregator: 'bg-blue-900/50 text-blue-400',
+      solver: 'bg-cyan-900/50 text-cyan-400',
+      mev: 'bg-red-900/50 text-red-400',
+      protocol: 'bg-purple-900/50 text-purple-400',
+      pool: 'bg-green-900/50 text-green-400',
+      user: 'bg-gray-800 text-gray-400',
+    }
+
+    return (
+      <div className="flex items-center gap-1">
+        <span className={`px-2 py-0.5 rounded text-xs font-medium ${typeStyles[label.type] || typeStyles.user}`}>
+          {label.name}
+        </span>
+        {isBot && label.type !== 'mev' && <BotTag />}
+      </div>
+    )
+  }
+
+  // Unknown source
+  return (
+    <div className="flex items-center gap-1">
+      <a
+        href={`https://etherscan.io/address/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-400 hover:text-gray-200 font-mono text-xs"
+      >
+        {formatAddress(address)}
+      </a>
+      {isBot && <BotTag />}
+    </div>
+  )
+}
+
+// Component to display receiver address
+function ReceiverDisplay({ address }: { address: string }) {
+  if (!address) {
+    return <span className="text-gray-500">-</span>
+  }
+
+  const label = getAddressLabel(address)
+
+  if (label) {
+    // For known addresses, show a subtle badge
+    return (
+      <a
+        href={`https://etherscan.io/address/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-400 hover:text-gray-200 font-mono text-xs"
+        title={label.name}
+      >
+        {formatAddress(address)}
+      </a>
+    )
+  }
+
+  return (
+    <a
+      href={`https://etherscan.io/address/${address}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-gray-400 hover:text-gray-200 font-mono text-xs"
+    >
+      {formatAddress(address)}
+    </a>
+  )
 }
 
 interface SwapTableProps {
@@ -144,13 +226,24 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
                     </div>
                   </div>
 
-                  {/* Source & Depeg */}
-                  <div className="flex items-center justify-between">
-                    <AddressLabel address={getBestAddressForLabel(event)} />
+                  {/* Source & Receiver */}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <div className="text-gray-500">Source</div>
+                      <SourceDisplay event={event} />
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Receiver</div>
+                      <ReceiverDisplay address={event.receiver} />
+                    </div>
+                  </div>
+
+                  {/* Depeg */}
+                  <div className="flex items-center justify-end">
                     {depegBps > 0 ? (
-                      <span className="text-red-400 font-mono text-sm">{depegBps} bps</span>
+                      <span className="text-red-400 font-mono text-sm">{depegBps} bps depeg</span>
                     ) : (
-                      <span className="text-gray-600 font-mono text-sm">0 bps</span>
+                      <span className="text-gray-600 font-mono text-sm">0 bps depeg</span>
                     )}
                   </div>
                 </div>
@@ -172,20 +265,21 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
               <th className="px-4 py-3 font-medium text-right">Amount Out</th>
               <th className="px-4 py-3 font-medium text-right">IOUs</th>
               <th className="px-4 py-3 font-medium">Source</th>
+              <th className="px-4 py-3 font-medium">Receiver</th>
               <th className="px-4 py-3 font-medium text-right">USD Value</th>
-              <th className="px-4 py-3 font-medium text-right">Depeg (bps)</th>
+              <th className="px-4 py-3 font-medium text-right">Depeg</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && events.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                   <div className="animate-pulse">Loading swap events...</div>
                 </td>
               </tr>
             ) : events.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                   No swaps found
                 </td>
               </tr>
@@ -238,14 +332,17 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <AddressLabel address={getBestAddressForLabel(event)} />
+                      <SourceDisplay event={event} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <ReceiverDisplay address={event.receiver} />
                     </td>
                     <td className="px-4 py-3 text-right text-green-400 font-mono">
                       ${usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {depegBps > 0 ? (
-                        <span className="text-red-400">{depegBps}</span>
+                        <span className="text-red-400">{depegBps} bps</span>
                       ) : (
                         <span className="text-gray-600">0</span>
                       )}

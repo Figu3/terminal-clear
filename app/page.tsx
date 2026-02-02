@@ -98,6 +98,7 @@ export default function Home() {
       'IOUs',
       'Source',
       'Source Address',
+      'Receiver',
       'USD Value',
       'Depeg (bps)',
     ]
@@ -123,6 +124,7 @@ export default function Home() {
         formatUnits(event.iouAmountOut, event.toDecimals),
         label ? label.name : 'Unknown',
         sourceAddr,
+        event.receiver,
         usdValue.toFixed(2),
         depegBps.toString(),
       ]

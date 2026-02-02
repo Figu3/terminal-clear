@@ -37,6 +37,18 @@ export const ADDRESS_LABELS: Record<string, AddressLabel> = {
   '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f': { name: 'SushiSwap', type: 'aggregator' },
   '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506': { name: 'SushiSwap v2', type: 'aggregator' },
 
+  // ===== DeFi Automation & Vaults =====
+  '0x8278da54b4a47c0f6f4a0a4b00b6f31678f30181': { name: 'DeFiSaver', type: 'aggregator' },
+  '0xc6efe8a67a31e5e1d5a25eedaa7bafcc7e2371b1': { name: 'DeFiSaver Recipes', type: 'aggregator' },
+  '0x287778f121f134c66212fb16c9b53ec991d32f5b': { name: 'DeFiSaver Exchange', type: 'aggregator' },
+  '0xf42eb13b54b8777862cd30f7baffaa84aaf7b15c': { name: 'Yearn Strategy', type: 'aggregator' },
+  '0x74a0121dc0ab16d697b79b59cedeffc626d5e28f': { name: 'DeFiSaver Bot', type: 'mev' },
+
+  // ===== Intent-Based Protocols =====
+  '0x63242a4ea82847b20e506b63b0e2e2eff0cc6cb0': { name: 'Enso', type: 'aggregator' },
+  '0xb4790b9567af88fab6398f8cd21f4460e076c408': { name: 'Enso Solver', type: 'solver' },
+  '0xf3f6902807f7bf22fcc005dc72fcbc5711c09485': { name: 'Enso Executor', type: 'solver' },
+
   // ===== Clear Protocol =====
   '0x5cc8b3282dcc692532b857a68bc0fb07f45fbade': { name: 'ClearVault', type: 'protocol' },
   '0xeb5ad3d93e59efcbc6934cad2b48eb33baf29745': { name: 'ClearSwap', type: 'protocol' },
