@@ -9,6 +9,7 @@ export interface SwapEvent {
   from: string
   to: string
   receiver: string
+  sender: string // The actual tx sender (user/aggregator)
   amountIn: bigint
   tokenAmountOut: bigint
   iouAmountOut: bigint
@@ -87,6 +88,20 @@ export function useSwapEvents(initialDays: number = 7) {
         })
       }
 
+      // Fetch transaction details to get real sender (batch by 10)
+      const txHashes = [...new Set(logs.map((l) => l.transactionHash))]
+      const txSenders: Record<string, string> = {}
+
+      for (let i = 0; i < txHashes.length; i += 10) {
+        const batch = txHashes.slice(i, i + 10)
+        const txs = await Promise.all(
+          batch.map((hash) => publicClient.getTransaction({ hash }))
+        )
+        txs.forEach((tx) => {
+          txSenders[tx.hash] = tx.from
+        })
+      }
+
       // Parse events
       const parsedEvents: SwapEvent[] = logs.map((log) => {
         const fromInfo = getTokenInfo(log.args.from!)
@@ -96,6 +111,7 @@ export function useSwapEvents(initialDays: number = 7) {
           from: log.args.from!,
           to: log.args.to!,
           receiver: log.args.receiver!,
+          sender: txSenders[log.transactionHash] || log.args.receiver!,
           amountIn: log.args.amountIn!,
           tokenAmountOut: log.args.tokenAmountOut!,
           iouAmountOut: log.args.iouAmountOut!,

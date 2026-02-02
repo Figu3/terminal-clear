@@ -40,14 +40,14 @@ export function formatDate(timestamp: number): string {
   })
 }
 
-export function calculateDepegPercent(amountIn: bigint, amountOut: bigint, fromDecimals: number, toDecimals: number): number {
-  // Normalize to same decimals (18)
+export function calculateDepegBps(amountIn: bigint, amountOut: bigint, fromDecimals: number, toDecimals: number): number {
+  // Normalize to same decimals
   const normalizedIn = Number(formatUnits(amountIn, fromDecimals))
   const normalizedOut = Number(formatUnits(amountOut, toDecimals))
 
   if (normalizedIn === 0) return 0
 
-  // Depeg % = (1 - out/in) * 100
+  // Depeg in bps = (1 - out/in) * 10000
   const ratio = normalizedOut / normalizedIn
-  return (1 - ratio) * 100
+  return Math.round((1 - ratio) * 10000)
 }

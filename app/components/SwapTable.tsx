@@ -2,7 +2,7 @@
 
 import { SwapEvent } from '@/app/hooks/useSwapEvents'
 import { AddressLabel } from './AddressLabel'
-import { formatTokenAmount, formatTimestamp, calculateDepegPercent } from '@/app/lib/formatters'
+import { formatTokenAmount, formatTimestamp, calculateDepegBps } from '@/app/lib/formatters'
 import { formatUnits } from 'viem'
 
 interface SwapTableProps {
@@ -29,9 +29,9 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded }: SwapTab
               <th className="px-4 py-3 font-medium text-right">Amount In</th>
               <th className="px-4 py-3 font-medium text-right">Amount Out</th>
               <th className="px-4 py-3 font-medium text-right">IOUs</th>
-              <th className="px-4 py-3 font-medium">Receiver</th>
+              <th className="px-4 py-3 font-medium">Sender</th>
               <th className="px-4 py-3 font-medium text-right">USD Value</th>
-              <th className="px-4 py-3 font-medium text-right">Depeg %</th>
+              <th className="px-4 py-3 font-medium text-right">Depeg (bps)</th>
             </tr>
           </thead>
           <tbody>
@@ -50,7 +50,7 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded }: SwapTab
             ) : (
               events.map((event) => {
                 const usdValue = Number(formatUnits(event.amountIn, event.fromDecimals))
-                const depegPercent = calculateDepegPercent(
+                const depegBps = calculateDepegBps(
                   event.amountIn,
                   event.tokenAmountOut,
                   event.fromDecimals,
@@ -96,16 +96,16 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded }: SwapTab
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <AddressLabel address={event.receiver} />
+                      <AddressLabel address={event.sender} />
                     </td>
                     <td className="px-4 py-3 text-right text-green-400 font-mono">
                       ${usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {depegPercent > 0 ? (
-                        <span className="text-red-400">{depegPercent.toFixed(2)}%</span>
+                      {depegBps > 0 ? (
+                        <span className="text-red-400">{depegBps}</span>
                       ) : (
-                        <span className="text-gray-600">0%</span>
+                        <span className="text-gray-600">0</span>
                       )}
                     </td>
                   </tr>
