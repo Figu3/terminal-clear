@@ -45,6 +45,7 @@ export function useSwapEvents(initialDays: number = 7) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const [daysToLoad, setDaysToLoad] = useState(initialDays)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const publicClient = usePublicClient()
 
@@ -174,6 +175,7 @@ export function useSwapEvents(initialDays: number = 7) {
         swapCount: parsedEvents.length,
       })
       setChartData(chartDataPoints)
+      setLastUpdated(new Date())
     } catch (err) {
       console.error('Failed to fetch swap events:', err)
       setError(err as Error)
@@ -194,5 +196,5 @@ export function useSwapEvents(initialDays: number = 7) {
     setDaysToLoad((prev) => prev + 7)
   }, [])
 
-  return { events, volumeData, chartData, isLoading, error, loadMore, daysToLoad }
+  return { events, volumeData, chartData, isLoading, error, loadMore, daysToLoad, lastUpdated }
 }

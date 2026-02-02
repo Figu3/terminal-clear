@@ -48,7 +48,7 @@ export function VolumeChart({ data, isLoading }: VolumeChartProps) {
               tickFormatter={(v) => formatUSD(v)}
               stroke="#6b7280"
               fontSize={12}
-              width={60}
+              width={50}
             />
             <Tooltip
               content={({ active, payload }) => {
