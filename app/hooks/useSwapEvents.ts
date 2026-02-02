@@ -8,8 +8,9 @@ import { CONTRACTS, getTokenInfo } from '@/app/lib/contracts'
 export interface SwapEvent {
   from: string
   to: string
-  receiver: string
-  sender: string // The actual tx sender (user/aggregator)
+  receiver: string // The address that receives the output tokens (often the aggregator)
+  txFrom: string // The EOA that initiated the transaction
+  txTo: string // The contract that was called (aggregator router)
   amountIn: bigint
   tokenAmountOut: bigint
   iouAmountOut: bigint
@@ -89,9 +90,9 @@ export function useSwapEvents(initialDays: number = 7) {
         })
       }
 
-      // Fetch transaction details to get real sender (batch by 10)
+      // Fetch transaction details to get sender and target contract (batch by 10)
       const txHashes = [...new Set(logs.map((l) => l.transactionHash))]
-      const txSenders: Record<string, string> = {}
+      const txDetails: Record<string, { from: string; to: string }> = {}
 
       for (let i = 0; i < txHashes.length; i += 10) {
         const batch = txHashes.slice(i, i + 10)
@@ -99,7 +100,7 @@ export function useSwapEvents(initialDays: number = 7) {
           batch.map((hash) => publicClient.getTransaction({ hash }))
         )
         txs.forEach((tx) => {
-          txSenders[tx.hash] = tx.from
+          txDetails[tx.hash] = { from: tx.from, to: tx.to || '' }
         })
       }
 
@@ -107,12 +108,14 @@ export function useSwapEvents(initialDays: number = 7) {
       const parsedEvents: SwapEvent[] = logs.map((log) => {
         const fromInfo = getTokenInfo(log.args.from!)
         const toInfo = getTokenInfo(log.args.to!)
+        const txDetail = txDetails[log.transactionHash] || { from: '', to: '' }
 
         return {
           from: log.args.from!,
           to: log.args.to!,
           receiver: log.args.receiver!,
-          sender: txSenders[log.transactionHash] || log.args.receiver!,
+          txFrom: txDetail.from,
+          txTo: txDetail.to,
           amountIn: log.args.amountIn!,
           tokenAmountOut: log.args.tokenAmountOut!,
           iouAmountOut: log.args.iouAmountOut!,

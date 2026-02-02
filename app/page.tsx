@@ -10,6 +10,44 @@ import { getAddressLabel } from '@/app/lib/addressLabels'
 import { formatUnits } from 'viem'
 import { calculateDepegBps } from '@/app/lib/formatters'
 
+// Get the best address to display for identifying the swap source
+function getBestSourceAddress(event: SwapEvent): string {
+  // First check if txTo is a known aggregator
+  if (event.txTo) {
+    const txToLabel = getAddressLabel(event.txTo)
+    if (txToLabel && txToLabel.type === 'aggregator') {
+      return event.txTo
+    }
+  }
+
+  // Then check receiver
+  if (event.receiver) {
+    const receiverLabel = getAddressLabel(event.receiver)
+    if (receiverLabel && (receiverLabel.type === 'aggregator' || receiverLabel.type === 'solver' || receiverLabel.type === 'pool')) {
+      return event.receiver
+    }
+  }
+
+  // Fall back to txTo if it's any known address
+  if (event.txTo) {
+    const txToLabel = getAddressLabel(event.txTo)
+    if (txToLabel) {
+      return event.txTo
+    }
+  }
+
+  // Fall back to receiver if it's any known address
+  if (event.receiver) {
+    const receiverLabel = getAddressLabel(event.receiver)
+    if (receiverLabel) {
+      return event.receiver
+    }
+  }
+
+  // Finally, show the txTo (the contract called) or receiver
+  return event.txTo || event.receiver || event.txFrom
+}
+
 export default function Home() {
   const { events, volumeData, chartData, isLoading, error, loadMore, daysToLoad, lastUpdated } = useSwapEvents()
 
@@ -36,11 +74,12 @@ export default function Home() {
         if (eventPair !== filters.tokenPair) return false
       }
 
-      // Sender type filter
+      // Source type filter
       if (filters.senderType !== 'all') {
-        const label = getAddressLabel(event.sender)
-        const senderType = label?.type || 'user'
-        if (senderType !== filters.senderType) return false
+        const sourceAddr = getBestSourceAddress(event)
+        const label = getAddressLabel(sourceAddr)
+        const sourceType = label?.type || 'user'
+        if (sourceType !== filters.senderType) return false
       }
 
       return true
@@ -57,7 +96,8 @@ export default function Home() {
       'Amount In',
       'Amount Out',
       'IOUs',
-      'Sender',
+      'Source',
+      'Source Address',
       'USD Value',
       'Depeg (bps)',
     ]
@@ -70,7 +110,8 @@ export default function Home() {
         event.fromDecimals,
         event.toDecimals
       )
-      const label = getAddressLabel(event.sender)
+      const sourceAddr = getBestSourceAddress(event)
+      const label = getAddressLabel(sourceAddr)
 
       return [
         event.transactionHash,
@@ -80,7 +121,8 @@ export default function Home() {
         formatUnits(event.amountIn, event.fromDecimals),
         formatUnits(event.tokenAmountOut, event.toDecimals),
         formatUnits(event.iouAmountOut, event.toDecimals),
-        label ? `${label.name} (${event.sender})` : event.sender,
+        label ? label.name : 'Unknown',
+        sourceAddr,
         usdValue.toFixed(2),
         depegBps.toString(),
       ]

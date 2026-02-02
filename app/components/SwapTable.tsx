@@ -3,7 +3,47 @@
 import { SwapEvent } from '@/app/hooks/useSwapEvents'
 import { AddressLabel } from './AddressLabel'
 import { formatTokenAmount, formatTimestamp, calculateDepegBps } from '@/app/lib/formatters'
+import { getAddressLabel } from '@/app/lib/addressLabels'
 import { formatUnits } from 'viem'
+
+// Get the best address to display for identifying the swap source
+// Priority: txTo (aggregator contract) > receiver > txFrom
+function getBestAddressForLabel(event: SwapEvent): string {
+  // First check if txTo is a known aggregator
+  if (event.txTo) {
+    const txToLabel = getAddressLabel(event.txTo)
+    if (txToLabel && txToLabel.type === 'aggregator') {
+      return event.txTo
+    }
+  }
+
+  // Then check receiver
+  if (event.receiver) {
+    const receiverLabel = getAddressLabel(event.receiver)
+    if (receiverLabel && (receiverLabel.type === 'aggregator' || receiverLabel.type === 'solver' || receiverLabel.type === 'pool')) {
+      return event.receiver
+    }
+  }
+
+  // Fall back to txTo if it's any known address
+  if (event.txTo) {
+    const txToLabel = getAddressLabel(event.txTo)
+    if (txToLabel) {
+      return event.txTo
+    }
+  }
+
+  // Fall back to receiver if it's any known address
+  if (event.receiver) {
+    const receiverLabel = getAddressLabel(event.receiver)
+    if (receiverLabel) {
+      return event.receiver
+    }
+  }
+
+  // Finally, show the txTo (the contract called) or receiver
+  return event.txTo || event.receiver || event.txFrom
+}
 
 interface SwapTableProps {
   events: SwapEvent[]
@@ -104,9 +144,9 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
                     </div>
                   </div>
 
-                  {/* Sender & Depeg */}
+                  {/* Source & Depeg */}
                   <div className="flex items-center justify-between">
-                    <AddressLabel address={event.sender} />
+                    <AddressLabel address={getBestAddressForLabel(event)} />
                     {depegBps > 0 ? (
                       <span className="text-red-400 font-mono text-sm">{depegBps} bps</span>
                     ) : (
@@ -131,7 +171,7 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
               <th className="px-4 py-3 font-medium text-right">Amount In</th>
               <th className="px-4 py-3 font-medium text-right">Amount Out</th>
               <th className="px-4 py-3 font-medium text-right">IOUs</th>
-              <th className="px-4 py-3 font-medium">Sender</th>
+              <th className="px-4 py-3 font-medium">Source</th>
               <th className="px-4 py-3 font-medium text-right">USD Value</th>
               <th className="px-4 py-3 font-medium text-right">Depeg (bps)</th>
             </tr>
@@ -198,7 +238,7 @@ export function SwapTable({ events, isLoading, onLoadMore, daysLoaded, onExportC
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <AddressLabel address={event.sender} />
+                      <AddressLabel address={getBestAddressForLabel(event)} />
                     </td>
                     <td className="px-4 py-3 text-right text-green-400 font-mono">
                       ${usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
